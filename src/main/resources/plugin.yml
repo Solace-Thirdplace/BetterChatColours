@@ -1,7 +1,7 @@
 name: BetterChatColours
 main: io.imadam.betterchatcolours.BetterChatColours
 version: 1.0.0
-api-version: 1.19
+api-version: "1.21"
 depend: [PlaceholderAPI]
 
 commands:
