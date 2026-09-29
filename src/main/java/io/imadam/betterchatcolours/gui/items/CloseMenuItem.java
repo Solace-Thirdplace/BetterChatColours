@@ -1,24 +1,24 @@
 package io.imadam.betterchatcolours.gui.items;
 
+import io.imadam.betterchatcolours.gui.menu.ItemBuilder;
+import io.imadam.betterchatcolours.gui.menu.MenuItem;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import xyz.xenondevs.invui.Click;
-import xyz.xenondevs.invui.item.AbstractItem;
-import xyz.xenondevs.invui.item.ItemBuilder;
-import xyz.xenondevs.invui.item.ItemProvider;
+import org.bukkit.inventory.ItemStack;
 
-public class CloseMenuItem extends AbstractItem {
+public class CloseMenuItem extends MenuItem {
 
   @Override
-  public ItemProvider getItemProvider(Player player) {
+  public ItemStack getItem(Player player) {
     return new ItemBuilder(Material.BARRIER)
         .setLegacyName("§c✕ Close Menu")
-        .addLegacyLoreLines("§7Close this menu");
+        .addLegacyLoreLines("§7Close this menu")
+        .build();
   }
 
   @Override
-  public void handleClick(ClickType clickType, Player player, Click click) {
+  public void handleClick(ClickType clickType, Player player) {
     player.closeInventory();
   }
 }

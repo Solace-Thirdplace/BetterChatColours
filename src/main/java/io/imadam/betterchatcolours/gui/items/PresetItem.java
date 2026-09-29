@@ -3,6 +3,8 @@ package io.imadam.betterchatcolours.gui.items;
 import io.imadam.betterchatcolours.BetterChatColours;
 import io.imadam.betterchatcolours.data.GlobalPresetData;
 import io.imadam.betterchatcolours.gui.GUIUtils;
+import io.imadam.betterchatcolours.gui.menu.ItemBuilder;
+import io.imadam.betterchatcolours.gui.menu.MenuItem;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -10,13 +12,10 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import xyz.xenondevs.invui.Click;
-import xyz.xenondevs.invui.item.AbstractItem;
-import xyz.xenondevs.invui.item.ItemBuilder;
-import xyz.xenondevs.invui.item.ItemProvider;
 
-public class PresetItem extends AbstractItem {
+public class PresetItem extends MenuItem {
 
   private final GlobalPresetData preset;
 
@@ -25,7 +24,7 @@ public class PresetItem extends AbstractItem {
   }
 
   @Override
-  public ItemProvider getItemProvider(Player player) {
+  public ItemStack getItem(Player player) {
     String gradientName = applyGradientToText(preset.getName());
 
     // Get the material based on the first color in the gradient
@@ -36,7 +35,8 @@ public class PresetItem extends AbstractItem {
         .addLegacyLoreLines(
             "§7Colors: " + preset.getColors().size(),
             "",
-            "§aClick to equip this preset");
+            "§aClick to equip this preset")
+        .build();
   }
 
   private Material getIconMaterial() {
@@ -65,7 +65,7 @@ public class PresetItem extends AbstractItem {
   }
 
   @Override
-  public void handleClick(ClickType clickType, Player player, Click click) {
+  public void handleClick(ClickType clickType, Player player) {
     // Equip this preset for the player
     BetterChatColours plugin = JavaPlugin.getPlugin(BetterChatColours.class);
     plugin.getUserDataManager().setEquippedPreset(player.getUniqueId(), preset.getName());

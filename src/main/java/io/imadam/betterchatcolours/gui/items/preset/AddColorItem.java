@@ -2,17 +2,16 @@ package io.imadam.betterchatcolours.gui.items.preset;
 
 import io.imadam.betterchatcolours.gui.ChatInputManager;
 import io.imadam.betterchatcolours.gui.InvUIAdminPresetCreateGUI;
+import io.imadam.betterchatcolours.gui.menu.ItemBuilder;
+import io.imadam.betterchatcolours.gui.menu.MenuItem;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import xyz.xenondevs.invui.Click;
-import xyz.xenondevs.invui.item.AbstractItem;
-import xyz.xenondevs.invui.item.ItemBuilder;
-import xyz.xenondevs.invui.item.ItemProvider;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
 
-public class AddColorItem extends AbstractItem {
+public class AddColorItem extends MenuItem {
 
   private final String presetName;
   private final List<String> colors;
@@ -25,17 +24,18 @@ public class AddColorItem extends AbstractItem {
   }
 
   @Override
-  public ItemProvider getItemProvider(Player player) {
+  public ItemStack getItem(Player player) {
     return new ItemBuilder(Material.LIME_DYE)
         .setLegacyName("§a§lAdd Color")
         .addLegacyLoreLines(
             "§7Click to add a new",
             "§7hex color to this preset"
-        );
+        )
+        .build();
   }
 
   @Override
-  public void handleClick(ClickType clickType, Player player, Click click) {
+  public void handleClick(ClickType clickType, Player player) {
     // Close the GUI so player can type in chat
     player.closeInventory();
 

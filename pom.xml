@@ -9,11 +9,12 @@
   <packaging>jar</packaging>
 
   <name>BetterChatColours</name>
-  <description>A Paper 1.21.1 plugin that provides chat color gradients through PlaceholderAPI integration</description>
+  <description>A Paper 1.21.11+ plugin that provides chat color gradients through PlaceholderAPI integration</description>
 
   <properties>
-    <maven.compiler.source>25</maven.compiler.source>
-    <maven.compiler.target>25</maven.compiler.target>
+    <!-- One jar for Minecraft 1.21.11 (Java 21) through 26.x (Java 25): compiled against the
+         1.21.11 API, emitted as Java 21 bytecode, and using only the Bukkit/Paper API. -->
+    <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -28,19 +29,15 @@
       <id>placeholderapi</id>
       <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
     </repository>
-    <!-- InvUI -->
-    <repository>
-      <id>xenondevs</id>
-      <url>https://repo.xenondevs.xyz/releases</url>
-    </repository>
   </repositories>
 
   <dependencies>
-    <!-- Paper API -->
+    <!-- Paper API: the oldest Minecraft version the jar must run on. Anything used from it must
+         still exist in the newest supported version. -->
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>26.2.build.112-stable</version>
+      <version>1.21.11-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
 
@@ -52,36 +49,25 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- InvUI 2.x: single, self-contained Mojang-mapped jar (no separate
-         inventory-access modules). InvUI 2.x targets ONE Minecraft version per
-         release and calls server internals directly, so this jar only runs on
-         that version:
-           2.0.0-alpha.26      Minecraft 1.21.11 (Java 21)
-           2.0.0 .. 2.1.1      Minecraft 26.1
-           2.2.0 .. 2.3.2      Minecraft 26.2 (Java 25)  <- this build
-           2.4.0+              Minecraft 26.3
-         InvUI is used only in the io.imadam.betterchatcolours.gui package, plus
-         InvUI.getInstance().setPlugin(this) in BetterChatColours#onEnable. -->
-    <dependency>
-      <groupId>xyz.xenondevs.invui</groupId>
-      <artifactId>invui</artifactId>
-      <version>2.3.2</version>
-    </dependency>
-
-    <!-- Compile-time annotations referenced by InvUI 2.x signatures (it declares
-         these as runtime scope, so they are absent from the compile classpath) and
-         used directly by our own code. Not shaded - annotations are CLASS-retention. -->
     <dependency>
       <groupId>org.jetbrains</groupId>
       <artifactId>annotations</artifactId>
       <version>26.0.2</version>
       <scope>provided</scope>
     </dependency>
+
+    <!-- Tests -->
     <dependency>
-      <groupId>org.jspecify</groupId>
-      <artifactId>jspecify</artifactId>
-      <version>1.0.0</version>
-      <scope>provided</scope>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.11.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.23.0</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -91,43 +77,29 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.5</version>
         <configuration>
-          <source>25</source>
-          <target>25</target>
+          <!-- Mockito's inline mock maker attaches itself as an agent -->
+          <argLine>-XX:+EnableDynamicAgentLoading</argLine>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <!-- 3.6.2+: its ASM reads Java 25 class files (InvUI 2.2+) -->
-        <version>3.6.2</version>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
         <configuration>
-          <relocations>
-            <relocation>
-              <pattern>xyz.xenondevs.invui</pattern>
-              <shadedPattern>io.imadam.betterchatcolours.libs.invui</shadedPattern>
-            </relocation>
-          </relocations>
-          <transformers>
-            <!-- InvUI 2.x is Mojang-mapped and calls NMS directly. Mark this jar as
-                 Mojang-mapped so Paper's plugin remapper leaves it alone; remapping a
-                 legacy (Spigot-assumed) plugin would corrupt InvUI's net.minecraft calls.
-                 BCC's own code only uses the Bukkit API, so this is safe. -->
-            <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-              <manifestEntries>
-                <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
-              </manifestEntries>
-            </transformer>
-          </transformers>
+          <archive>
+            <manifestEntries>
+              <!-- The plugin uses no server internals, so there is nothing for Paper's plugin
+                   remapper to do. -->
+              <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+            </manifestEntries>
+          </archive>
         </configuration>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>shade</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

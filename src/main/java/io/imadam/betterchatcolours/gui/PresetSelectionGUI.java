@@ -6,20 +6,16 @@ import io.imadam.betterchatcolours.gui.items.BackToMainItem;
 import io.imadam.betterchatcolours.gui.items.CloseMenuItem;
 import io.imadam.betterchatcolours.gui.items.PresetItem;
 import io.imadam.betterchatcolours.gui.items.UnequipPresetItem;
+import io.imadam.betterchatcolours.gui.menu.ItemBuilder;
+import io.imadam.betterchatcolours.gui.menu.Menu;
+import io.imadam.betterchatcolours.gui.menu.MenuItem;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import xyz.xenondevs.invui.Click;
-import xyz.xenondevs.invui.gui.Markers;
-import xyz.xenondevs.invui.gui.PagedGui;
-import xyz.xenondevs.invui.item.AbstractPagedGuiBoundItem;
-import xyz.xenondevs.invui.item.Item;
-import xyz.xenondevs.invui.item.ItemBuilder;
-import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.window.Window;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -53,11 +49,11 @@ public class PresetSelectionGUI {
         .collect(Collectors.toList());
 
     // Convert to PresetItems (as Items)
-    List<Item> presetItems = availablePresets.stream()
+    List<MenuItem> presetItems = availablePresets.stream()
         .map(PresetItem::new)
         .collect(Collectors.toList());
 
-    PagedGui<Item> gui = PagedGui.itemsBuilder()
+    Menu gui = Menu.builder()
         .setStructure(
             "# # # # # # # # #",
             "# x x x x x x x #",
@@ -66,7 +62,7 @@ public class PresetSelectionGUI {
             "# x x x x x x x #",
             "# u # < # > # b #")
         .addIngredient('#', GUIUtils.createGlassPane())
-        .addIngredient('x', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
+        .setContentSlots('x')
         .addIngredient('u', new UnequipPresetItem()) // Unequip button
         .addIngredient('<', new PreviousPageItem()) // Previous page
         .addIngredient('>', new NextPageItem()) // Next page
@@ -78,56 +74,52 @@ public class PresetSelectionGUI {
     Component title = LegacyComponentSerializer.legacySection()
         .deserialize("§8Available Presets §7(Page " + (gui.getPage() + 1) + "/" + Math.max(1, gui.getPageCount()) + ")");
 
-    Window window = Window.builder()
-        .setViewer(player)
-        .setTitle(title)
-        .setUpperGui(gui)
-        .build();
-
-    window.open();
+    gui.open(player, title);
   }
 
   // Pagination control items bound to the paged gui they are placed in
-  private static class PreviousPageItem extends AbstractPagedGuiBoundItem {
+  private static class PreviousPageItem extends MenuItem {
 
     @Override
-    public ItemProvider getItemProvider(Player player) {
-      PagedGui<?> gui = getGui();
+    public ItemStack getItem(Player player) {
+      Menu gui = getMenu();
       return new ItemBuilder(Material.RED_STAINED_GLASS_PANE)
           .setLegacyName("§e§lPrevious Page")
           .addLegacyLoreLines(
               gui.getPage() > 0
                   ? "§7Go to page " + gui.getPage() + "/" + gui.getPageCount()
                   : "§7You can't go further back"
-          );
+          )
+          .build();
     }
 
     @Override
-    public void handleClick(ClickType clickType, Player player, Click click) {
-      PagedGui<?> gui = getGui();
+    public void handleClick(ClickType clickType, Player player) {
+      Menu gui = getMenu();
       if (gui.getPage() > 0) {
         gui.setPage(gui.getPage() - 1);
       }
     }
   }
 
-  private static class NextPageItem extends AbstractPagedGuiBoundItem {
+  private static class NextPageItem extends MenuItem {
 
     @Override
-    public ItemProvider getItemProvider(Player player) {
-      PagedGui<?> gui = getGui();
+    public ItemStack getItem(Player player) {
+      Menu gui = getMenu();
       return new ItemBuilder(Material.GREEN_STAINED_GLASS_PANE)
           .setLegacyName("§e§lNext Page")
           .addLegacyLoreLines(
               gui.getPage() < gui.getPageCount() - 1
                   ? "§7Go to page " + (gui.getPage() + 2) + "/" + gui.getPageCount()
                   : "§7There are no more pages"
-          );
+          )
+          .build();
     }
 
     @Override
-    public void handleClick(ClickType clickType, Player player, Click click) {
-      PagedGui<?> gui = getGui();
+    public void handleClick(ClickType clickType, Player player) {
+      Menu gui = getMenu();
       if (gui.getPage() < gui.getPageCount() - 1) {
         gui.setPage(gui.getPage() + 1);
       }

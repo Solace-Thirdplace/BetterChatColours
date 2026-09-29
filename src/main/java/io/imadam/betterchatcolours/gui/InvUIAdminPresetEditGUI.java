@@ -2,6 +2,9 @@ package io.imadam.betterchatcolours.gui;
 
 import io.imadam.betterchatcolours.BetterChatColours;
 import io.imadam.betterchatcolours.data.GlobalPresetData;
+import io.imadam.betterchatcolours.gui.menu.ItemBuilder;
+import io.imadam.betterchatcolours.gui.menu.Menu;
+import io.imadam.betterchatcolours.gui.menu.MenuItem;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -9,16 +12,8 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import xyz.xenondevs.invui.Click;
-import xyz.xenondevs.invui.gui.Markers;
-import xyz.xenondevs.invui.gui.PagedGui;
-import xyz.xenondevs.invui.item.AbstractItem;
-import xyz.xenondevs.invui.item.AbstractPagedGuiBoundItem;
-import xyz.xenondevs.invui.item.Item;
-import xyz.xenondevs.invui.item.ItemBuilder;
-import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.window.Window;
 
 import java.util.List;
 import java.util.Map;
@@ -31,7 +26,7 @@ public class InvUIAdminPresetEditGUI {
         Map<String, GlobalPresetData> allPresets = plugin.getGlobalPresetManager().getAllPresets();
 
         // Create preset items and sort by color count (descending) then alphabetically
-        List<Item> presetItems = allPresets.values().stream()
+        List<MenuItem> presetItems = allPresets.values().stream()
                 .sorted((a, b) -> {
                   // First sort by color count (descending - higher numbers first)
                   int colorCountCompare = Integer.compare(b.getColors().size(), a.getColors().size());
@@ -44,7 +39,7 @@ public class InvUIAdminPresetEditGUI {
                 .map(EditablePresetItem::new)
                 .collect(Collectors.toList());
 
-        PagedGui<Item> gui = PagedGui.itemsBuilder()
+        Menu gui = Menu.builder()
                 .setStructure(
                         "# # # # # # # # #",
                         "# x x x x x x x #",
@@ -53,7 +48,7 @@ public class InvUIAdminPresetEditGUI {
                         "# x x x x x x x #",
                         "# < # # b # # > #")
                 .addIngredient('#', GUIUtils.createGlassPane())
-                .addIngredient('x', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
+                .setContentSlots('x')
                 .addIngredient('<', new PreviousPageItem())
                 .addIngredient('>', new NextPageItem())
                 .addIngredient('b', new BackToMainItem())
@@ -64,16 +59,10 @@ public class InvUIAdminPresetEditGUI {
         Component title = LegacyComponentSerializer.legacySection()
                 .deserialize("§8Edit Presets §7(Page " + (gui.getPage() + 1) + "/" + Math.max(1, gui.getPageCount()) + ")");
 
-        Window window = Window.builder()
-                .setViewer(player)
-                .setTitle(title)
-                .setUpperGui(gui)
-                .build();
-
-        window.open();
+        gui.open(player, title);
     }
 
-    private static class EditablePresetItem extends AbstractItem {
+    private static class EditablePresetItem extends MenuItem {
         private final GlobalPresetData preset;
 
         public EditablePresetItem(GlobalPresetData preset) {
@@ -81,7 +70,7 @@ public class InvUIAdminPresetEditGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider(Player player) {
+        public ItemStack getItem(Player player) {
             // Create gradient preview for display name using the same method as PresetItem
             String gradientName = applyGradientToText(preset.getName());
 
@@ -96,7 +85,8 @@ public class InvUIAdminPresetEditGUI {
                             "",
                             "§eLeft click: §7Edit preset",
                             "§eRight click: §7Delete preset"
-                    );
+                    )
+                    .build();
         }
 
         private Material getIconMaterial() {
@@ -125,7 +115,7 @@ public class InvUIAdminPresetEditGUI {
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
+        public void handleClick(ClickType clickType, Player player) {
             if (clickType.isLeftClick()) {
                 // Edit the preset
                 player.closeInventory();
@@ -148,59 +138,62 @@ public class InvUIAdminPresetEditGUI {
         }
     }
 
-    private static class BackToMainItem extends AbstractItem {
+    private static class BackToMainItem extends MenuItem {
         @Override
-        public ItemProvider getItemProvider(Player player) {
+        public ItemStack getItem(Player player) {
             return new ItemBuilder(Material.ARROW)
                     .setLegacyName("§c§lBack to Main Menu")
-                    .addLegacyLoreLines("§7Click to return to main menu");
+                    .addLegacyLoreLines("§7Click to return to main menu")
+                    .build();
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
+        public void handleClick(ClickType clickType, Player player) {
             player.closeInventory();
             MainMenuGUI.open(player);
         }
     }
 
-    private static class PreviousPageItem extends AbstractPagedGuiBoundItem {
+    private static class PreviousPageItem extends MenuItem {
         @Override
-        public ItemProvider getItemProvider(Player player) {
-            PagedGui<?> gui = getGui();
+        public ItemStack getItem(Player player) {
+            Menu gui = getMenu();
             return new ItemBuilder(Material.RED_STAINED_GLASS_PANE)
                     .setLegacyName("§e§lPrevious Page")
                     .addLegacyLoreLines(
                             gui.getPage() > 0
                                 ? "§7Go to page " + gui.getPage() + "/" + gui.getPageCount()
                                 : "§7You can't go further back"
-                    );
+                    )
+                    .build();
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
-            PagedGui<?> gui = getGui();
+        public void handleClick(ClickType clickType, Player player) {
+            Menu gui = getMenu();
             if (gui.getPage() > 0) {
                 gui.setPage(gui.getPage() - 1);
             }
         }
     }
 
-    private static class NextPageItem extends AbstractPagedGuiBoundItem {
+    private static class NextPageItem extends MenuItem {
         @Override
-        public ItemProvider getItemProvider(Player player) {
-            PagedGui<?> gui = getGui();
+        public ItemStack getItem(Player player) {
+            Menu gui = getMenu();
             return new ItemBuilder(Material.GREEN_STAINED_GLASS_PANE)
                     .setLegacyName("§e§lNext Page")
                     .addLegacyLoreLines(
                             gui.getPage() < gui.getPageCount() - 1
                                 ? "§7Go to page " + (gui.getPage() + 2) + "/" + gui.getPageCount()
                                 : "§7There are no more pages"
-                    );
+                    )
+                    .build();
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
-            PagedGui<?> gui = getGui();
+        public void handleClick(ClickType clickType, Player player) {
+            Menu gui = getMenu();
             if (gui.getPage() < gui.getPageCount() - 1) {
                 gui.setPage(gui.getPage() + 1);
             }

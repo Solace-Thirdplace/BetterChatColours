@@ -3,10 +3,10 @@ package io.imadam.betterchatcolours;
 import io.imadam.betterchatcolours.commands.ChatColorsCommand;
 import io.imadam.betterchatcolours.data.GlobalPresetManager;
 import io.imadam.betterchatcolours.data.UserDataManager;
+import io.imadam.betterchatcolours.gui.menu.MenuListener;
 import io.imadam.betterchatcolours.placeholders.ChatColorsExpansion;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
-import xyz.xenondevs.invui.InvUI;
 
 public class BetterChatColours extends JavaPlugin {
 
@@ -17,9 +17,6 @@ public class BetterChatColours extends JavaPlugin {
   @Override
   public void onEnable() {
     instance = this;
-
-    // Initialize InvUI
-    InvUI.getInstance().setPlugin(this);
 
     // Create data directory
     if (!getDataFolder().exists()) {
@@ -49,6 +46,7 @@ public class BetterChatColours extends JavaPlugin {
     // Register listeners
     getServer().getPluginManager().registerEvents(new io.imadam.betterchatcolours.gui.ChatInputManager(), this);
     getServer().getPluginManager().registerEvents(new io.imadam.betterchatcolours.listeners.PermissionListener(), this);
+    getServer().getPluginManager().registerEvents(new MenuListener(this), this);
 
     // Register PlaceholderAPI expansion if available
     if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {

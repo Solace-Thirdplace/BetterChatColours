@@ -2,6 +2,9 @@ package io.imadam.betterchatcolours.gui;
 
 import io.imadam.betterchatcolours.BetterChatColours;
 import io.imadam.betterchatcolours.gui.items.preset.AddColorItem;
+import io.imadam.betterchatcolours.gui.menu.ItemBuilder;
+import io.imadam.betterchatcolours.gui.menu.Menu;
+import io.imadam.betterchatcolours.gui.menu.MenuItem;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -9,15 +12,8 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import xyz.xenondevs.invui.Click;
-import xyz.xenondevs.invui.gui.Markers;
-import xyz.xenondevs.invui.gui.PagedGui;
-import xyz.xenondevs.invui.item.AbstractItem;
-import xyz.xenondevs.invui.item.Item;
-import xyz.xenondevs.invui.item.ItemBuilder;
-import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.window.Window;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,20 +37,20 @@ public class InvUIAdminPresetCreateGUI {
 
     private static void openColorSelectionGUI(Player player, String presetName, List<String> colors, boolean isEditMode) {
         // Create color items for the dynamic content
-        List<Item> colorItems = new ArrayList<>();
+        List<MenuItem> colorItems = new ArrayList<>();
         for (int i = 0; i < colors.size(); i++) {
             colorItems.add(new ColorSlotItem(presetName, colors, i, isEditMode));
         }
 
-        // Use PagedGui for dynamic content
-        PagedGui<Item> gui = PagedGui.itemsBuilder()
+        // Paged menu for dynamic content
+        Menu gui = Menu.builder()
                 .setStructure(
                         "# # # # # # # # #",
                         "# x x x x x x x #",
                         "# x x x x x x x #",
                         "# a # p # s # c #")
                 .addIngredient('#', GUIUtils.createGlassPane())
-                .addIngredient('x', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
+                .setContentSlots('x')
                 .addIngredient('a', new AddColorItem(presetName, colors, isEditMode))
                 .addIngredient('p', new PreviewItem(presetName, colors))
                 .addIngredient('s', new SavePresetItem(presetName, colors, isEditMode))
@@ -65,17 +61,11 @@ public class InvUIAdminPresetCreateGUI {
         Component title = LegacyComponentSerializer.legacySection()
                 .deserialize((isEditMode ? "Edit Preset: " : "Create Preset: ") + presetName);
 
-        Window window = Window.builder()
-                .setViewer(player)
-                .setTitle(title)
-                .setUpperGui(gui)
-                .build();
-
-        window.open();
+        gui.open(player, title);
     }
 
     // Inner classes for GUI items
-    private static class PreviewItem extends AbstractItem {
+    private static class PreviewItem extends MenuItem {
         private final String presetName;
         private final List<String> colors;
 
@@ -85,7 +75,7 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider(Player player) {
+        public ItemStack getItem(Player player) {
             ItemBuilder builder = new ItemBuilder(Material.PAPER)
                     .setLegacyName("§e§lPreview");
 
@@ -96,7 +86,7 @@ public class InvUIAdminPresetCreateGUI {
                 builder.addLegacyLoreLines("§7Add colors to see preview");
             }
 
-            return builder;
+            return builder.build();
         }
 
         private String createGradientPreview(String text, List<String> colors) {
@@ -122,12 +112,12 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
+        public void handleClick(ClickType clickType, Player player) {
             // Do nothing - this is just a preview
         }
     }
 
-    private static class SavePresetItem extends AbstractItem {
+    private static class SavePresetItem extends MenuItem {
         private final String presetName;
         private final List<String> colors;
         private final boolean isEditMode;
@@ -139,18 +129,19 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider(Player player) {
+        public ItemStack getItem(Player player) {
             return new ItemBuilder(Material.NAME_TAG)
                     .setLegacyName("§a§lSave Preset")
                     .addLegacyLoreLines(
                             "§7Click to save preset with",
                             "§7auto-generated permission:",
                             "§bchatcolor.preset." + presetName.toLowerCase()
-                    );
+                    )
+                    .build();
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
+        public void handleClick(ClickType clickType, Player player) {
             if (colors.isEmpty()) {
                 player.sendMessage(Component.text("Cannot save preset without colors!", NamedTextColor.RED));
                 return;
@@ -170,7 +161,7 @@ public class InvUIAdminPresetCreateGUI {
         }
     }
 
-    private static class CancelItem extends AbstractItem {
+    private static class CancelItem extends MenuItem {
         private final boolean isEditMode;
 
         public CancelItem(boolean isEditMode) {
@@ -178,14 +169,15 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider(Player player) {
+        public ItemStack getItem(Player player) {
             return new ItemBuilder(Material.BARRIER)
                     .setLegacyName("§c§lCancel")
-                    .addLegacyLoreLines("§7Click to cancel and return");
+                    .addLegacyLoreLines("§7Click to cancel and return")
+                    .build();
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
+        public void handleClick(ClickType clickType, Player player) {
             player.closeInventory();
             if (isEditMode) {
                 InvUIAdminPresetEditGUI.open(player);
@@ -195,7 +187,7 @@ public class InvUIAdminPresetCreateGUI {
         }
     }
 
-    private static class ColorSlotItem extends AbstractItem {
+    private static class ColorSlotItem extends MenuItem {
         private final String presetName;
         private final List<String> colors;
         private final int index;
@@ -209,7 +201,7 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider(Player player) {
+        public ItemStack getItem(Player player) {
             String hexColor = colors.get(index);
             Material dyeColor = GUIUtils.getClosestDyeColor(hexColor);
 
@@ -220,11 +212,12 @@ public class InvUIAdminPresetCreateGUI {
                             "",
                             "§eLeft click: §7Edit color",
                             "§eRight click: §7Remove color"
-                    );
+                    )
+                    .build();
         }
 
         @Override
-        public void handleClick(ClickType clickType, Player player, Click click) {
+        public void handleClick(ClickType clickType, Player player) {
             if (clickType.isLeftClick()) {
                 // Edit color - close GUI first
                 player.closeInventory();
