@@ -137,13 +137,13 @@ class MenuListenerTest {
   }
 
   @Test
-  void plainClickInThePlayersOwnInventoryIsAllowed() {
+  void plainClickInThePlayersOwnInventoryIsCancelled() {
     Menu menu = openMenu(new RecordingItem(Material.ARROW), List.of());
 
     InventoryClickEvent event = server.click(menu, player, 40, ClickType.LEFT, InventoryAction.PICKUP_ALL);
     listener.onInventoryClick(event);
 
-    verify(event, never()).setCancelled(true);
+    verify(event).setCancelled(true);
     assertTrue(server.tasks.isEmpty());
   }
 
@@ -178,22 +178,23 @@ class MenuListenerTest {
 
     verify(menuSlot).setCancelled(true);
     verify(shift).setCancelled(true);
-    verify(ownSlot, never()).setCancelled(true);
+    verify(ownSlot).setCancelled(true);
     assertTrue(server.tasks.isEmpty(), "the enforcing handler never runs item actions");
   }
 
   @Test
-  void clickOutsideTheWindowIsAllowed() {
+  void clickOutsideTheWindowIsCancelled() {
     Menu menu = openMenu(new RecordingItem(Material.ARROW), List.of());
 
     InventoryClickEvent event = server.click(menu, player, -999, ClickType.LEFT, InventoryAction.NOTHING);
     listener.onInventoryClick(event);
 
-    verify(event, never()).setCancelled(true);
+    verify(event).setCancelled(true);
+    assertTrue(server.tasks.isEmpty());
   }
 
   @Test
-  void dragsTouchingTheMenuAreCancelled() {
+  void everyDragIsCancelledWhileAMenuIsOpen() {
     Menu menu = openMenu(new RecordingItem(Material.ARROW), List.of());
 
     var intoMenu = server.drag(menu.getInventory(), Set.of(26, 30));
@@ -202,7 +203,47 @@ class MenuListenerTest {
     listener.onInventoryDrag(ownInventory);
 
     verify(intoMenu).setCancelled(true);
-    verify(ownInventory, never()).setCancelled(true);
+    verify(ownInventory).setCancelled(true);
+  }
+
+  @Test
+  void everyKindOfClickIsCancelledInBothInventories() {
+    Menu menu = openMenu(new RecordingItem(Material.ARROW), List.of());
+
+    for (int slot : new int[] {0, 22, 26, 27, 40, 62, -1, -999}) {
+      for (ClickType type : ClickType.values()) {
+        for (InventoryAction action : InventoryAction.values()) {
+          InventoryClickEvent first = server.click(menu, player, slot, type, action);
+          InventoryClickEvent last = server.click(menu, player, slot, type, action);
+          listener.onInventoryClick(first);
+          listener.enforceInventoryClick(last);
+          verify(first).setCancelled(true);
+          verify(last).setCancelled(true);
+          server.runTasks();
+        }
+      }
+    }
+  }
+
+  @Test
+  void closeAllClosesOpenMenusAndLeavesOtherInventoriesAlone() {
+    Menu menu = openMenu(new RecordingItem(Material.ARROW), List.of());
+    var menuView = mock(org.bukkit.inventory.InventoryView.class);
+    when(menuView.getTopInventory()).thenReturn(menu.getInventory());
+    when(player.getOpenInventory()).thenReturn(menuView);
+
+    Player other = mock(Player.class);
+    Inventory chest = mock(Inventory.class);
+    when(chest.getHolder(false)).thenReturn(mock(InventoryHolder.class));
+    var chestView = mock(org.bukkit.inventory.InventoryView.class);
+    when(chestView.getTopInventory()).thenReturn(chest);
+    when(other.getOpenInventory()).thenReturn(chestView);
+
+    server.bukkit.when(org.bukkit.Bukkit::getOnlinePlayers).thenAnswer(inv -> List.of(player, other));
+    MenuListener.closeAll();
+
+    verify(player).closeInventory();
+    verify(other, never()).closeInventory();
   }
 
   @Test

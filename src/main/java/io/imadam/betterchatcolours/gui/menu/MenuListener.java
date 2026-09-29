@@ -1,11 +1,11 @@
 package io.imadam.betterchatcolours.gui.menu;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
@@ -16,11 +16,12 @@ import java.util.function.Consumer;
 /**
  * Routes clicks in open {@link Menu}s to their items.
  *
- * <p>Menu items are display-only: every click in the menu's own slots is cancelled, and so is
- * anything in the player's inventory that would move items into the menu or pull them out of it
- * (shift-click, collect-to-cursor, and drags that touch a menu slot). Other clicks in the player's
- * own inventory are left alone. The cancellation is applied first and again after other plugins
- * have handled the event, so menu items cannot be taken even if another plugin un-cancels it.
+ * <p>Menu items are display-only. While a menu is open every click and every drag is cancelled,
+ * in the menu and in the player's own inventory alike, so no item can move into the menu or out
+ * of it whatever kind of click the client sends, including kinds a later Minecraft version adds.
+ * The cancellation is applied first and again after other plugins have handled the event, so menu
+ * items cannot be taken even if another plugin un-cancels it. {@link #closeAll()} shuts every open
+ * menu when the plugin is disabled, because a menu left open with no listener is an ordinary chest.
  *
  * <p>The item's click action runs on the next server tick, because Bukkit does not allow an
  * inventory to be closed or opened from inside an {@link InventoryClickEvent}. Until it has run,
@@ -42,9 +43,6 @@ public class MenuListener implements Listener {
   public void onInventoryClick(InventoryClickEvent event) {
     Inventory top = event.getView().getTopInventory();
     if (!(top.getHolder(false) instanceof Menu menu)) {
-      return;
-    }
-    if (!isBlocked(event, top)) {
       return;
     }
     event.setCancelled(true);
@@ -71,7 +69,7 @@ public class MenuListener implements Listener {
   @EventHandler(priority = EventPriority.HIGHEST)
   public void enforceInventoryClick(InventoryClickEvent event) {
     Inventory top = event.getView().getTopInventory();
-    if (top.getHolder(false) instanceof Menu && isBlocked(event, top)) {
+    if (top.getHolder(false) instanceof Menu) {
       event.setCancelled(true);
     }
   }
@@ -84,27 +82,20 @@ public class MenuListener implements Listener {
   @EventHandler(priority = EventPriority.HIGHEST)
   public void enforceInventoryDrag(InventoryDragEvent event) {
     Inventory top = event.getView().getTopInventory();
-    if (!(top.getHolder(false) instanceof Menu)) {
-      return;
-    }
-    for (int rawSlot : event.getRawSlots()) {
-      if (rawSlot < top.getSize()) {
-        event.setCancelled(true);
-        return;
-      }
+    if (top.getHolder(false) instanceof Menu) {
+      event.setCancelled(true);
     }
   }
 
   /**
-   * Whether a click in an open menu has to be cancelled: any click on a menu slot, and any click in
-   * the player's inventory that would move items into or out of the menu.
+   * Closes every open menu. Called when the plugin is disabled: once this listener is unregistered
+   * nothing protects a menu that is still open, and its icons could be taken as items.
    */
-  private static boolean isBlocked(InventoryClickEvent event, Inventory top) {
-    int rawSlot = event.getRawSlot();
-    if (rawSlot >= 0 && rawSlot < top.getSize()) {
-      return true;
+  public static void closeAll() {
+    for (Player player : Bukkit.getOnlinePlayers()) {
+      if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof Menu) {
+        player.closeInventory();
+      }
     }
-    InventoryAction action = event.getAction();
-    return action == InventoryAction.MOVE_TO_OTHER_INVENTORY || action == InventoryAction.COLLECT_TO_CURSOR;
   }
 }

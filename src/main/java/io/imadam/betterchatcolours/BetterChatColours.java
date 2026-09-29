@@ -61,6 +61,9 @@ public class BetterChatColours extends JavaPlugin {
 
   @Override
   public void onDisable() {
+    // A menu left open after the listener is gone is an ordinary chest
+    MenuListener.closeAll();
+
     // Save data
     if (globalPresetManager != null) {
       globalPresetManager.savePresets();
