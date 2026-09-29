@@ -12,8 +12,8 @@
   <description>A Paper 1.21.1 plugin that provides chat color gradients through PlaceholderAPI integration</description>
 
   <properties>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>25</maven.compiler.source>
+    <maven.compiler.target>25</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -40,7 +40,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.21.11-R0.1-SNAPSHOT</version>
+      <version>26.2.build.112-stable</version>
       <scope>provided</scope>
     </dependency>
 
@@ -54,12 +54,18 @@
 
     <!-- InvUI 2.x: single, self-contained Mojang-mapped jar (no separate
          inventory-access modules). InvUI 2.x targets ONE Minecraft version per
-         release; alpha.26 is the last build targeting 1.21.11 (Java 21 bytecode) -
-         beta.1+/2.x releases moved to Minecraft 26.1 (Java 25) and won't run here. -->
+         release and calls server internals directly, so this jar only runs on
+         that version:
+           2.0.0-alpha.26      Minecraft 1.21.11 (Java 21)
+           2.0.0 .. 2.1.1      Minecraft 26.1
+           2.2.0 .. 2.3.2      Minecraft 26.2 (Java 25)  <- this build
+           2.4.0+              Minecraft 26.3
+         InvUI is used only in the io.imadam.betterchatcolours.gui package, plus
+         InvUI.getInstance().setPlugin(this) in BetterChatColours#onEnable. -->
     <dependency>
       <groupId>xyz.xenondevs.invui</groupId>
       <artifactId>invui</artifactId>
-      <version>2.0.0-alpha.26</version>
+      <version>2.3.2</version>
     </dependency>
 
     <!-- Compile-time annotations referenced by InvUI 2.x signatures (it declares
@@ -86,14 +92,15 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <source>21</source>
-          <target>21</target>
+          <source>25</source>
+          <target>25</target>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.6.0</version>
+        <!-- 3.6.2+: its ASM reads Java 25 class files (InvUI 2.2+) -->
+        <version>3.6.2</version>
         <configuration>
           <relocations>
             <relocation>
