@@ -10,11 +10,11 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
 
 public class PresetItem extends AbstractItem {
 
@@ -25,15 +25,15 @@ public class PresetItem extends AbstractItem {
   }
 
   @Override
-  public ItemProvider getItemProvider() {
+  public ItemProvider getItemProvider(Player player) {
     String gradientName = applyGradientToText(preset.getName());
-    
+
     // Get the material based on the first color in the gradient
     Material iconMaterial = getIconMaterial();
 
     return new ItemBuilder(iconMaterial)
-        .setDisplayName(gradientName)
-        .addLoreLines(
+        .setLegacyName(gradientName)
+        .addLegacyLoreLines(
             "§7Colors: " + preset.getColors().size(),
             "",
             "§aClick to equip this preset");
@@ -43,7 +43,7 @@ public class PresetItem extends AbstractItem {
     if (preset.getColors() == null || preset.getColors().isEmpty()) {
       return Material.PAPER; // Fallback for presets with no colors
     }
-    
+
     // Use the first color in the gradient to determine the icon
     String firstColor = preset.getColors().get(0);
     return GUIUtils.getClosestConcreteColor(firstColor);
@@ -65,7 +65,7 @@ public class PresetItem extends AbstractItem {
   }
 
   @Override
-  public void handleClick(ClickType clickType, Player player, InventoryClickEvent event) {
+  public void handleClick(ClickType clickType, Player player, Click click) {
     // Equip this preset for the player
     BetterChatColours plugin = JavaPlugin.getPlugin(BetterChatColours.class);
     plugin.getUserDataManager().setEquippedPreset(player.getUniqueId(), preset.getName());

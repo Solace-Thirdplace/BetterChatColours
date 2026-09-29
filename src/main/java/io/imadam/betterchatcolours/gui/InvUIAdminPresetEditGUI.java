@@ -2,25 +2,24 @@ package io.imadam.betterchatcolours.gui;
 
 import io.imadam.betterchatcolours.BetterChatColours;
 import io.imadam.betterchatcolours.data.GlobalPresetData;
-import io.imadam.betterchatcolours.gui.GUIUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Markers;
 import xyz.xenondevs.invui.gui.PagedGui;
-import xyz.xenondevs.invui.gui.structure.Markers;
-import xyz.xenondevs.invui.gui.structure.Structure;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.AbstractPagedGuiBoundItem;
 import xyz.xenondevs.invui.item.Item;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
-import xyz.xenondevs.invui.item.impl.controlitem.PageItem;
 import xyz.xenondevs.invui.window.Window;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,31 +44,30 @@ public class InvUIAdminPresetEditGUI {
                 .map(EditablePresetItem::new)
                 .collect(Collectors.toList());
 
-        Structure structure = new Structure(
-                "# # # # # # # # #",
-                "# x x x x x x x #",
-                "# x x x x x x x #",
-                "# x x x x x x x #",
-                "# x x x x x x x #",
-                "# < # # b # # > #")
+        PagedGui<Item> gui = PagedGui.itemsBuilder()
+                .setStructure(
+                        "# # # # # # # # #",
+                        "# x x x x x x x #",
+                        "# x x x x x x x #",
+                        "# x x x x x x x #",
+                        "# x x x x x x x #",
+                        "# < # # b # # > #")
                 .addIngredient('#', GUIUtils.createGlassPane())
                 .addIngredient('x', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
                 .addIngredient('<', new PreviousPageItem())
                 .addIngredient('>', new NextPageItem())
-                .addIngredient('b', new BackToMainItem());
-
-        PagedGui<Item> gui = PagedGui.items()
-                .setStructure(structure)
+                .addIngredient('b', new BackToMainItem())
                 .setContent(presetItems)
                 .build();
 
         // Create title with current page info
-        String title = "§8Edit Presets §7(Page " + (gui.getCurrentPage() + 1) + "/" + gui.getPageAmount() + ")";
+        Component title = LegacyComponentSerializer.legacySection()
+                .deserialize("§8Edit Presets §7(Page " + (gui.getPage() + 1) + "/" + Math.max(1, gui.getPageCount()) + ")");
 
-        Window window = Window.single()
+        Window window = Window.builder()
                 .setViewer(player)
                 .setTitle(title)
-                .setGui(gui)
+                .setUpperGui(gui)
                 .build();
 
         window.open();
@@ -83,16 +81,16 @@ public class InvUIAdminPresetEditGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public ItemProvider getItemProvider(Player player) {
             // Create gradient preview for display name using the same method as PresetItem
             String gradientName = applyGradientToText(preset.getName());
-            
+
             // Get the material based on the first color in the gradient
             Material iconMaterial = getIconMaterial();
-            
+
             return new ItemBuilder(iconMaterial)
-                    .setDisplayName(gradientName)
-                    .addLoreLines(
+                    .setLegacyName(gradientName)
+                    .addLegacyLoreLines(
                             "§7Colors: §f" + preset.getColors().size(),
                             "§7Permission: §f" + preset.getPermission(),
                             "",
@@ -105,7 +103,7 @@ public class InvUIAdminPresetEditGUI {
             if (preset.getColors() == null || preset.getColors().isEmpty()) {
                 return Material.PAPER; // Fallback for presets with no colors
             }
-            
+
             // Use the first color in the gradient to determine the icon
             String firstColor = preset.getColors().get(0);
             return GUIUtils.getClosestConcreteColor(firstColor);
@@ -118,8 +116,8 @@ public class InvUIAdminPresetEditGUI {
 
             try {
                 String gradientMessage = preset.getGradientTag() + text + preset.getClosingTag();
-                var component = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(gradientMessage);
-                return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(component);
+                var component = MiniMessage.miniMessage().deserialize(gradientMessage);
+                return LegacyComponentSerializer.legacySection().serialize(component);
             } catch (Exception e) {
                 // Fallback to yellow text if gradient parsing fails
                 return "§e§l" + text;
@@ -127,7 +125,7 @@ public class InvUIAdminPresetEditGUI {
         }
 
         @Override
-        public void handleClick(org.bukkit.event.inventory.ClickType clickType, Player player, org.bukkit.event.inventory.InventoryClickEvent event) {
+        public void handleClick(ClickType clickType, Player player, Click click) {
             if (clickType.isLeftClick()) {
                 // Edit the preset
                 player.closeInventory();
@@ -141,9 +139,9 @@ public class InvUIAdminPresetEditGUI {
         private void deletePreset(Player player, String presetName) {
             BetterChatColours plugin = JavaPlugin.getPlugin(BetterChatColours.class);
             plugin.getGlobalPresetManager().removePreset(presetName);
-            
+
             player.sendMessage(Component.text("Preset '" + presetName + "' deleted successfully!", NamedTextColor.GREEN));
-            
+
             // Refresh the GUI
             player.closeInventory();
             InvUIAdminPresetEditGUI.open(player);
@@ -152,50 +150,60 @@ public class InvUIAdminPresetEditGUI {
 
     private static class BackToMainItem extends AbstractItem {
         @Override
-        public ItemProvider getItemProvider() {
+        public ItemProvider getItemProvider(Player player) {
             return new ItemBuilder(Material.ARROW)
-                    .setDisplayName("§c§lBack to Main Menu")
-                    .addLoreLines("§7Click to return to main menu");
+                    .setLegacyName("§c§lBack to Main Menu")
+                    .addLegacyLoreLines("§7Click to return to main menu");
         }
 
         @Override
-        public void handleClick(org.bukkit.event.inventory.ClickType clickType, Player player, org.bukkit.event.inventory.InventoryClickEvent event) {
+        public void handleClick(ClickType clickType, Player player, Click click) {
             player.closeInventory();
             MainMenuGUI.open(player);
         }
     }
 
-    private static class PreviousPageItem extends PageItem {
-        public PreviousPageItem() {
-            super(false); // false = previous page
-        }
-
+    private static class PreviousPageItem extends AbstractPagedGuiBoundItem {
         @Override
-        public ItemProvider getItemProvider(PagedGui<?> gui) {
+        public ItemProvider getItemProvider(Player player) {
+            PagedGui<?> gui = getGui();
             return new ItemBuilder(Material.RED_STAINED_GLASS_PANE)
-                    .setDisplayName("§e§lPrevious Page")
-                    .addLoreLines(
-                            gui.hasPreviousPage() 
-                                ? "§7Go to page " + gui.getCurrentPage() + "/" + gui.getPageAmount()
+                    .setLegacyName("§e§lPrevious Page")
+                    .addLegacyLoreLines(
+                            gui.getPage() > 0
+                                ? "§7Go to page " + gui.getPage() + "/" + gui.getPageCount()
                                 : "§7You can't go further back"
                     );
         }
+
+        @Override
+        public void handleClick(ClickType clickType, Player player, Click click) {
+            PagedGui<?> gui = getGui();
+            if (gui.getPage() > 0) {
+                gui.setPage(gui.getPage() - 1);
+            }
+        }
     }
 
-    private static class NextPageItem extends PageItem {
-        public NextPageItem() {
-            super(true); // true = next page
+    private static class NextPageItem extends AbstractPagedGuiBoundItem {
+        @Override
+        public ItemProvider getItemProvider(Player player) {
+            PagedGui<?> gui = getGui();
+            return new ItemBuilder(Material.GREEN_STAINED_GLASS_PANE)
+                    .setLegacyName("§e§lNext Page")
+                    .addLegacyLoreLines(
+                            gui.getPage() < gui.getPageCount() - 1
+                                ? "§7Go to page " + (gui.getPage() + 2) + "/" + gui.getPageCount()
+                                : "§7There are no more pages"
+                    );
         }
 
         @Override
-        public ItemProvider getItemProvider(PagedGui<?> gui) {
-            return new ItemBuilder(Material.GREEN_STAINED_GLASS_PANE)
-                    .setDisplayName("§e§lNext Page")
-                    .addLoreLines(
-                            gui.hasNextPage() 
-                                ? "§7Go to page " + (gui.getCurrentPage() + 2) + "/" + gui.getPageAmount()
-                                : "§7There are no more pages"
-                    );
+        public void handleClick(ClickType clickType, Player player, Click click) {
+            PagedGui<?> gui = getGui();
+            if (gui.getPage() < gui.getPageCount() - 1) {
+                gui.setPage(gui.getPage() + 1);
+            }
         }
     }
 }

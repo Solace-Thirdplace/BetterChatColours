@@ -33,16 +33,6 @@
       <id>xenondevs</id>
       <url>https://repo.xenondevs.xyz/releases</url>
     </repository>
-    <!-- AnvilGUI -->
-    <repository>
-      <id>codemc-snapshots</id>
-      <url>https://repo.codemc.io/repository/maven-snapshots/</url>
-    </repository>
-    <!-- AnvilGUI -->
-    <repository>
-      <id>wesjd-repo</id>
-      <url>https://nexus.wesjd.net/repository/thirdparty/</url>
-    </repository>
   </repositories>
 
   <dependencies>
@@ -62,19 +52,30 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- InvUI -->
+    <!-- InvUI 2.x: single, self-contained Mojang-mapped jar (no separate
+         inventory-access modules). InvUI 2.x targets ONE Minecraft version per
+         release; alpha.26 is the last build targeting 1.21.11 (Java 21 bytecode) -
+         beta.1+/2.x releases moved to Minecraft 26.1 (Java 25) and won't run here. -->
     <dependency>
       <groupId>xyz.xenondevs.invui</groupId>
       <artifactId>invui</artifactId>
-      <version>1.49</version>
-      <type>pom</type>
+      <version>2.0.0-alpha.26</version>
     </dependency>
 
-    <!-- AnvilGUI - Java 21 compatible version -->
+    <!-- Compile-time annotations referenced by InvUI 2.x signatures (it declares
+         these as runtime scope, so they are absent from the compile classpath) and
+         used directly by our own code. Not shaded - annotations are CLASS-retention. -->
     <dependency>
-      <groupId>net.wesjd</groupId>
-      <artifactId>anvilgui</artifactId>
-      <version>1.10.10-SNAPSHOT</version>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>26.0.2</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+      <version>1.0.0</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 
@@ -99,15 +100,18 @@
               <pattern>xyz.xenondevs.invui</pattern>
               <shadedPattern>io.imadam.betterchatcolours.libs.invui</shadedPattern>
             </relocation>
-            <relocation>
-              <pattern>xyz.xenondevs.inventoryaccess</pattern>
-              <shadedPattern>io.imadam.betterchatcolours.libs.inventoryaccess</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>net.wesjd.anvilgui</pattern>
-              <shadedPattern>io.imadam.betterchatcolours.libs.anvilgui</shadedPattern>
-            </relocation>
           </relocations>
+          <transformers>
+            <!-- InvUI 2.x is Mojang-mapped and calls NMS directly. Mark this jar as
+                 Mojang-mapped so Paper's plugin remapper leaves it alone; remapping a
+                 legacy (Spigot-assumed) plugin would corrupt InvUI's net.minecraft calls.
+                 BCC's own code only uses the Bukkit API, so this is safe. -->
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+              <manifestEntries>
+                <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+              </manifestEntries>
+            </transformer>
+          </transformers>
         </configuration>
         <executions>
           <execution>

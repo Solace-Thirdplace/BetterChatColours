@@ -3,8 +3,8 @@ package io.imadam.betterchatcolours.gui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.SimpleItem;
+import xyz.xenondevs.invui.item.Item;
+import xyz.xenondevs.invui.item.ItemBuilder;
 
 import java.util.List;
 
@@ -12,12 +12,12 @@ public class GUIUtils {
 
   private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-  public static SimpleItem createGlassPane() {
-    return new SimpleItem(new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).setDisplayName(" "));
+  public static Item createGlassPane() {
+    return Item.simple(new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).setLegacyName(" "));
   }
 
-  public static SimpleItem createBorderPane() {
-    return new SimpleItem(new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE).setDisplayName(" "));
+  public static Item createBorderPane() {
+    return Item.simple(new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE).setLegacyName(" "));
   }
 
   public static Component createGradientText(String text, List<String> colors) {

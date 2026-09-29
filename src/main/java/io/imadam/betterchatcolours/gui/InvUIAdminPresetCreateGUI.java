@@ -5,18 +5,18 @@ import io.imadam.betterchatcolours.gui.items.preset.AddColorItem;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.plugin.java.JavaPlugin;
-import xyz.xenondevs.invui.gui.Gui;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Markers;
 import xyz.xenondevs.invui.gui.PagedGui;
-import xyz.xenondevs.invui.gui.structure.Markers;
-import xyz.xenondevs.invui.gui.structure.Structure;
+import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.Item;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
-import xyz.xenondevs.invui.item.impl.SimpleItem;
 import xyz.xenondevs.invui.window.Window;
 
 import java.util.ArrayList;
@@ -40,19 +40,6 @@ public class InvUIAdminPresetCreateGUI {
     }
 
     private static void openColorSelectionGUI(Player player, String presetName, List<String> colors, boolean isEditMode) {
-        // Create structure for color display
-        Structure structure = new Structure(
-                "# # # # # # # # #",
-                "# x x x x x x x #",
-                "# x x x x x x x #",
-                "# a # p # s # c #")
-                .addIngredient('#', GUIUtils.createGlassPane())
-                .addIngredient('x', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
-                .addIngredient('a', new AddColorItem(presetName, colors, isEditMode))
-                .addIngredient('p', new PreviewItem(presetName, colors))
-                .addIngredient('s', new SavePresetItem(presetName, colors, isEditMode))
-                .addIngredient('c', new CancelItem(isEditMode));
-
         // Create color items for the dynamic content
         List<Item> colorItems = new ArrayList<>();
         for (int i = 0; i < colors.size(); i++) {
@@ -60,17 +47,28 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         // Use PagedGui for dynamic content
-        PagedGui<Item> gui = PagedGui.items()
-                .setStructure(structure)
+        PagedGui<Item> gui = PagedGui.itemsBuilder()
+                .setStructure(
+                        "# # # # # # # # #",
+                        "# x x x x x x x #",
+                        "# x x x x x x x #",
+                        "# a # p # s # c #")
+                .addIngredient('#', GUIUtils.createGlassPane())
+                .addIngredient('x', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
+                .addIngredient('a', new AddColorItem(presetName, colors, isEditMode))
+                .addIngredient('p', new PreviewItem(presetName, colors))
+                .addIngredient('s', new SavePresetItem(presetName, colors, isEditMode))
+                .addIngredient('c', new CancelItem(isEditMode))
                 .setContent(colorItems)
                 .build();
 
-        String title = (isEditMode ? "Edit Preset: " : "Create Preset: ") + presetName;
-        
-        Window window = Window.single()
+        Component title = LegacyComponentSerializer.legacySection()
+                .deserialize((isEditMode ? "Edit Preset: " : "Create Preset: ") + presetName);
+
+        Window window = Window.builder()
                 .setViewer(player)
                 .setTitle(title)
-                .setGui(gui)
+                .setUpperGui(gui)
                 .build();
 
         window.open();
@@ -87,17 +85,17 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public ItemProvider getItemProvider(Player player) {
             ItemBuilder builder = new ItemBuilder(Material.PAPER)
-                    .setDisplayName("§e§lPreview");
-            
+                    .setLegacyName("§e§lPreview");
+
             if (!colors.isEmpty()) {
                 String preview = createGradientPreview("Preview: " + presetName, colors);
-                builder.addLoreLines("§7Gradient preview:", preview);
+                builder.addLegacyLoreLines("§7Gradient preview:", preview);
             } else {
-                builder.addLoreLines("§7Add colors to see preview");
+                builder.addLegacyLoreLines("§7Add colors to see preview");
             }
-            
+
             return builder;
         }
 
@@ -114,17 +112,17 @@ public class InvUIAdminPresetCreateGUI {
                     gradient.append(colors.get(i));
                 }
                 gradient.append(">");
-                
+
                 String gradientMessage = gradient.toString() + text + "</gradient>";
-                var component = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(gradientMessage);
-                return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(component);
+                var component = MiniMessage.miniMessage().deserialize(gradientMessage);
+                return LegacyComponentSerializer.legacySection().serialize(component);
             } catch (Exception e) {
                 return "§e" + text;
             }
         }
 
         @Override
-        public void handleClick(org.bukkit.event.inventory.ClickType clickType, Player player, org.bukkit.event.inventory.InventoryClickEvent event) {
+        public void handleClick(ClickType clickType, Player player, Click click) {
             // Do nothing - this is just a preview
         }
     }
@@ -141,10 +139,10 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public ItemProvider getItemProvider(Player player) {
             return new ItemBuilder(Material.NAME_TAG)
-                    .setDisplayName("§a§lSave Preset")
-                    .addLoreLines(
+                    .setLegacyName("§a§lSave Preset")
+                    .addLegacyLoreLines(
                             "§7Click to save preset with",
                             "§7auto-generated permission:",
                             "§bchatcolor.preset." + presetName.toLowerCase()
@@ -152,7 +150,7 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public void handleClick(org.bukkit.event.inventory.ClickType clickType, Player player, org.bukkit.event.inventory.InventoryClickEvent event) {
+        public void handleClick(ClickType clickType, Player player, Click click) {
             if (colors.isEmpty()) {
                 player.sendMessage(Component.text("Cannot save preset without colors!", NamedTextColor.RED));
                 return;
@@ -160,11 +158,11 @@ public class InvUIAdminPresetCreateGUI {
 
             BetterChatColours plugin = JavaPlugin.getPlugin(BetterChatColours.class);
             plugin.getGlobalPresetManager().addPreset(presetName, colors);
-            
+
             String permission = "chatcolor.preset." + presetName.toLowerCase();
             String action = isEditMode ? "updated" : "created";
             player.sendMessage(Component.text("Preset '" + presetName + "' " + action + " successfully! Permission: " + permission, NamedTextColor.GREEN));
-            
+
             player.closeInventory();
             if (isEditMode) {
                 InvUIAdminPresetEditGUI.open(player);
@@ -180,14 +178,14 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public ItemProvider getItemProvider(Player player) {
             return new ItemBuilder(Material.BARRIER)
-                    .setDisplayName("§c§lCancel")
-                    .addLoreLines("§7Click to cancel and return");
+                    .setLegacyName("§c§lCancel")
+                    .addLegacyLoreLines("§7Click to cancel and return");
         }
 
         @Override
-        public void handleClick(org.bukkit.event.inventory.ClickType clickType, Player player, org.bukkit.event.inventory.InventoryClickEvent event) {
+        public void handleClick(ClickType clickType, Player player, Click click) {
             player.closeInventory();
             if (isEditMode) {
                 InvUIAdminPresetEditGUI.open(player);
@@ -211,13 +209,13 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public ItemProvider getItemProvider(Player player) {
             String hexColor = colors.get(index);
             Material dyeColor = GUIUtils.getClosestDyeColor(hexColor);
-            
+
             return new ItemBuilder(dyeColor)
-                    .setDisplayName("§f§lColor " + (index + 1))
-                    .addLoreLines(
+                    .setLegacyName("§f§lColor " + (index + 1))
+                    .addLegacyLoreLines(
                             "§7Hex: §f" + hexColor,
                             "",
                             "§eLeft click: §7Edit color",
@@ -226,7 +224,7 @@ public class InvUIAdminPresetCreateGUI {
         }
 
         @Override
-        public void handleClick(org.bukkit.event.inventory.ClickType clickType, Player player, org.bukkit.event.inventory.InventoryClickEvent event) {
+        public void handleClick(ClickType clickType, Player player, Click click) {
             if (clickType.isLeftClick()) {
                 // Edit color - close GUI first
                 player.closeInventory();

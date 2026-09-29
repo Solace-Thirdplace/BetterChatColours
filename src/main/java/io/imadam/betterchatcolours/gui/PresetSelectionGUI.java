@@ -6,21 +6,20 @@ import io.imadam.betterchatcolours.gui.items.BackToMainItem;
 import io.imadam.betterchatcolours.gui.items.CloseMenuItem;
 import io.imadam.betterchatcolours.gui.items.PresetItem;
 import io.imadam.betterchatcolours.gui.items.UnequipPresetItem;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Markers;
 import xyz.xenondevs.invui.gui.PagedGui;
-import xyz.xenondevs.invui.gui.structure.Markers;
-import xyz.xenondevs.invui.gui.structure.Structure;
+import xyz.xenondevs.invui.item.AbstractPagedGuiBoundItem;
 import xyz.xenondevs.invui.item.Item;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
-import xyz.xenondevs.invui.item.impl.controlitem.PageItem;
 import xyz.xenondevs.invui.window.Window;
-import xyz.xenondevs.inventoryaccess.component.ComponentWrapper;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,69 +57,80 @@ public class PresetSelectionGUI {
         .map(PresetItem::new)
         .collect(Collectors.toList());
 
-    Structure structure = new Structure(
-        "# # # # # # # # #",
-        "# x x x x x x x #",
-        "# x x x x x x x #",
-        "# x x x x x x x #",
-        "# x x x x x x x #",
-        "# u # < # > # b #")
+    PagedGui<Item> gui = PagedGui.itemsBuilder()
+        .setStructure(
+            "# # # # # # # # #",
+            "# x x x x x x x #",
+            "# x x x x x x x #",
+            "# x x x x x x x #",
+            "# x x x x x x x #",
+            "# u # < # > # b #")
         .addIngredient('#', GUIUtils.createGlassPane())
         .addIngredient('x', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
         .addIngredient('u', new UnequipPresetItem()) // Unequip button
         .addIngredient('<', new PreviousPageItem()) // Previous page
         .addIngredient('>', new NextPageItem()) // Next page
-        .addIngredient('b', isAdmin ? new BackToMainItem() : new CloseMenuItem());
-
-    PagedGui<Item> gui = PagedGui.items()
-        .setStructure(structure)
+        .addIngredient('b', isAdmin ? new BackToMainItem() : new CloseMenuItem())
         .setContent(presetItems)
         .build();
 
     // Create title with current page info
-    String title = "§8Available Presets §7(Page " + (gui.getCurrentPage() + 1) + "/" + gui.getPageAmount() + ")";
+    Component title = LegacyComponentSerializer.legacySection()
+        .deserialize("§8Available Presets §7(Page " + (gui.getPage() + 1) + "/" + Math.max(1, gui.getPageCount()) + ")");
 
-    Window window = Window.single()
+    Window window = Window.builder()
         .setViewer(player)
         .setTitle(title)
-        .setGui(gui)
+        .setUpperGui(gui)
         .build();
 
     window.open();
   }
 
-  // Pagination control items using InvUI's built-in PageItem
-  private static class PreviousPageItem extends PageItem {
-    public PreviousPageItem() {
-      super(false); // false = previous page
-    }
+  // Pagination control items bound to the paged gui they are placed in
+  private static class PreviousPageItem extends AbstractPagedGuiBoundItem {
 
     @Override
-    public ItemProvider getItemProvider(PagedGui<?> gui) {
+    public ItemProvider getItemProvider(Player player) {
+      PagedGui<?> gui = getGui();
       return new ItemBuilder(Material.RED_STAINED_GLASS_PANE)
-          .setDisplayName("§e§lPrevious Page")
-          .addLoreLines(
-              gui.hasPreviousPage() 
-                  ? "§7Go to page " + gui.getCurrentPage() + "/" + gui.getPageAmount()
+          .setLegacyName("§e§lPrevious Page")
+          .addLegacyLoreLines(
+              gui.getPage() > 0
+                  ? "§7Go to page " + gui.getPage() + "/" + gui.getPageCount()
                   : "§7You can't go further back"
           );
     }
+
+    @Override
+    public void handleClick(ClickType clickType, Player player, Click click) {
+      PagedGui<?> gui = getGui();
+      if (gui.getPage() > 0) {
+        gui.setPage(gui.getPage() - 1);
+      }
+    }
   }
 
-  private static class NextPageItem extends PageItem {
-    public NextPageItem() {
-      super(true); // true = next page
+  private static class NextPageItem extends AbstractPagedGuiBoundItem {
+
+    @Override
+    public ItemProvider getItemProvider(Player player) {
+      PagedGui<?> gui = getGui();
+      return new ItemBuilder(Material.GREEN_STAINED_GLASS_PANE)
+          .setLegacyName("§e§lNext Page")
+          .addLegacyLoreLines(
+              gui.getPage() < gui.getPageCount() - 1
+                  ? "§7Go to page " + (gui.getPage() + 2) + "/" + gui.getPageCount()
+                  : "§7There are no more pages"
+          );
     }
 
     @Override
-    public ItemProvider getItemProvider(PagedGui<?> gui) {
-      return new ItemBuilder(Material.GREEN_STAINED_GLASS_PANE)
-          .setDisplayName("§e§lNext Page")
-          .addLoreLines(
-              gui.hasNextPage() 
-                  ? "§7Go to page " + (gui.getCurrentPage() + 2) + "/" + gui.getPageAmount()
-                  : "§7There are no more pages"
-          );
+    public void handleClick(ClickType clickType, Player player, Click click) {
+      PagedGui<?> gui = getGui();
+      if (gui.getPage() < gui.getPageCount() - 1) {
+        gui.setPage(gui.getPage() + 1);
+      }
     }
   }
 }
