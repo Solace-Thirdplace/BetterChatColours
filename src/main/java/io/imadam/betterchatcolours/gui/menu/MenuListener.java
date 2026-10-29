@@ -11,7 +11,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.Plugin;
 
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 /**
  * Routes clicks in open {@link Menu}s to their items.
@@ -25,17 +25,19 @@ import java.util.function.Consumer;
  *
  * <p>The item's click action runs on the next server tick, because Bukkit does not allow an
  * inventory to be closed or opened from inside an {@link InventoryClickEvent}. Until it has run,
- * further clicks in the same menu are ignored, so one click cannot trigger an action twice.
+ * further clicks in the same menu are ignored, so one click cannot trigger an action twice. The
+ * action is scheduled on the clicking player's own scheduler, so on Folia it runs on the thread
+ * that owns the player; on Paper that is the main thread.
  */
 public class MenuListener implements Listener {
 
-  private final Consumer<Runnable> nextTick;
+  private final BiConsumer<Player, Runnable> nextTick;
 
   public MenuListener(Plugin plugin) {
-    this(task -> plugin.getServer().getScheduler().runTask(plugin, task));
+    this((player, task) -> player.getScheduler().run(plugin, scheduled -> task.run(), null));
   }
 
-  MenuListener(Consumer<Runnable> nextTick) {
+  MenuListener(BiConsumer<Player, Runnable> nextTick) {
     this.nextTick = nextTick;
   }
 
@@ -57,7 +59,7 @@ public class MenuListener implements Listener {
 
     ClickType clickType = event.getClick();
     menu.setClickPending(true);
-    nextTick.accept(() -> {
+    nextTick.accept(player, () -> {
       menu.setClickPending(false);
       menu.handleClick(rawSlot, clickType, player);
     });
@@ -90,9 +92,16 @@ public class MenuListener implements Listener {
   /**
    * Closes every open menu. Called when the plugin is disabled: once this listener is unregistered
    * nothing protects a menu that is still open, and its icons could be taken as items.
+   *
+   * <p>A disabled plugin cannot schedule tasks, so only players this thread may touch are closed:
+   * every player on Paper's main thread, and on Folia's shutdown thread. Folia cannot disable a
+   * plugin at runtime, and shutdown disconnects everyone, so a player skipped there loses nothing.
    */
   public static void closeAll() {
     for (Player player : Bukkit.getOnlinePlayers()) {
+      if (!Bukkit.isOwnedByCurrentRegion(player)) {
+        continue;
+      }
       if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof Menu) {
         player.closeInventory();
       }

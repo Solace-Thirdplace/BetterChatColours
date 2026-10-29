@@ -1,8 +1,10 @@
 package io.imadam.betterchatcolours.gui.menu;
 
+import io.papermc.paper.threadedregions.scheduler.EntityScheduler;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
@@ -13,7 +15,6 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitScheduler;
 import org.mockito.MockedStatic;
 
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -31,8 +33,9 @@ import static org.mockito.Mockito.when;
 
 /**
  * Stands in for the server in menu tests: Bukkit.createInventory returns a map-backed inventory,
- * ItemStack.of returns a mock that remembers its material, name and lore, and scheduled tasks are
- * queued until {@link #runTasks()}.
+ * ItemStack.of returns a mock that remembers its material, name and lore, and tasks scheduled on a
+ * player's scheduler are queued until {@link #runTasks()}. Every player counts as owned by the
+ * current thread, as on Paper's main thread.
  */
 public class MenuTestSupport implements AutoCloseable {
 
@@ -48,17 +51,7 @@ public class MenuTestSupport implements AutoCloseable {
     bukkit = mockStatic(Bukkit.class);
     bukkit.when(() -> Bukkit.createInventory(any(InventoryHolder.class), anyInt(), any(Component.class)))
         .thenAnswer(inv -> inventory(inv.getArgument(0), inv.getArgument(1)));
-    BukkitScheduler scheduler = mock(BukkitScheduler.class);
-    when(scheduler.runTask(any(), any(Runnable.class))).thenAnswer(inv -> {
-      tasks.add(inv.getArgument(1));
-      return null;
-    });
-    when(scheduler.runTaskLater(any(), any(Runnable.class), org.mockito.ArgumentMatchers.anyLong()))
-        .thenAnswer(inv -> {
-          tasks.add(inv.getArgument(1));
-          return null;
-        });
-    bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+    bukkit.when(() -> Bukkit.isOwnedByCurrentRegion(any(Entity.class))).thenReturn(true);
 
     itemStacks = mockStatic(ItemStack.class);
     itemStacks.when(() -> ItemStack.of(any(Material.class))).thenAnswer(inv -> itemStack(inv.getArgument(0)));
@@ -66,7 +59,7 @@ public class MenuTestSupport implements AutoCloseable {
 
   /** The listener under test, running "next tick" tasks through the same queue. */
   public MenuListener listener() {
-    return new MenuListener(tasks::add);
+    return new MenuListener((player, task) -> tasks.add(task));
   }
 
   public void runTasks() {
@@ -79,6 +72,8 @@ public class MenuTestSupport implements AutoCloseable {
     Player player = mock(Player.class);
     UUID id = UUID.randomUUID();
     when(player.getUniqueId()).thenReturn(id);
+    EntityScheduler scheduler = scheduler();
+    when(player.getScheduler()).thenReturn(scheduler);
     Set<String> granted = Set.of(permissions);
     when(player.hasPermission(any(String.class))).thenAnswer(inv -> granted.contains(inv.<String>getArgument(0)));
     when(player.openInventory(any(Inventory.class))).thenAnswer(inv -> {
@@ -86,6 +81,22 @@ public class MenuTestSupport implements AutoCloseable {
       return null;
     });
     return player;
+  }
+
+  @SuppressWarnings("unchecked")
+  private EntityScheduler scheduler() {
+    EntityScheduler scheduler = mock(EntityScheduler.class);
+    when(scheduler.run(any(), any(), any())).thenAnswer(inv -> {
+      Consumer<io.papermc.paper.threadedregions.scheduler.ScheduledTask> task = inv.getArgument(1);
+      tasks.add(() -> task.accept(null));
+      return null;
+    });
+    when(scheduler.runDelayed(any(), any(), any(), org.mockito.ArgumentMatchers.anyLong())).thenAnswer(inv -> {
+      Consumer<io.papermc.paper.threadedregions.scheduler.ScheduledTask> task = inv.getArgument(1);
+      tasks.add(() -> task.accept(null));
+      return null;
+    });
+    return scheduler;
   }
 
   /** The menu most recently opened for any player. */

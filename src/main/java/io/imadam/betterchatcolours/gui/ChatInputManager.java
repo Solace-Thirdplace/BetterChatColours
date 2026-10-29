@@ -9,10 +9,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public class ChatInputManager implements Listener {
@@ -42,7 +42,9 @@ public class ChatInputManager implements Listener {
     }
   }
 
-  private static final Map<UUID, InputSession> activeSessions = new HashMap<>();
+  // Written from the player's thread when a prompt opens and from the async chat thread when the
+  // answer arrives
+  private static final Map<UUID, InputSession> activeSessions = new ConcurrentHashMap<>();
 
   public static void requestPresetName(Player player, Consumer<String> callback, Runnable cancelCallback) {
     activeSessions.put(player.getUniqueId(),
@@ -113,9 +115,9 @@ public class ChatInputManager implements Listener {
     // Handle cancel
     if (message.equalsIgnoreCase("cancel")) {
       player.sendMessage(Component.text("[CANCELLED] Input cancelled.", NamedTextColor.RED));
-      // Run cancel callback on main thread
+      // Run cancel callback on the player's own thread (main thread on Paper, its region on Folia)
       BetterChatColours plugin = JavaPlugin.getPlugin(BetterChatColours.class);
-      plugin.getServer().getScheduler().runTask(plugin, session.cancelCallback);
+      player.getScheduler().run(plugin, task -> session.cancelCallback.run(), null);
       return;
     }
 
@@ -127,9 +129,9 @@ public class ChatInputManager implements Listener {
       return;
     }
 
-    // Run callback on main thread
+    // Run callback on the player's own thread (main thread on Paper, its region on Folia)
     BetterChatColours plugin = JavaPlugin.getPlugin(BetterChatColours.class);
-    plugin.getServer().getScheduler().runTask(plugin, () -> session.callback.accept(validatedInput));
+    player.getScheduler().run(plugin, task -> session.callback.accept(validatedInput), null);
   }
 
   private String validateInput(InputType type, String input, Player player) {

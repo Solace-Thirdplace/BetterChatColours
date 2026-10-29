@@ -7,25 +7,36 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 public class UserDataManager {
   private final BetterChatColours plugin;
-  private final Map<UUID, String> userEquippedPresets;
+  // Read by placeholders on chat and region threads, written from each player's own thread. A
+  // reload builds a new map and swaps it in, so readers never see it half-loaded.
+  private volatile Map<UUID, String> userEquippedPresets;
   private final File userDataFile;
 
   public UserDataManager(BetterChatColours plugin) {
     this.plugin = plugin;
-    this.userEquippedPresets = new HashMap<>();
+    this.userEquippedPresets = new ConcurrentHashMap<>();
     this.userDataFile = new File(plugin.getDataFolder(), "userdata.yml");
   }
 
-  public void loadUserData() {
-    userEquippedPresets.clear();
+  // Holds the same lock as saveUserData: a save truncates userdata.yml before writing, and a
+  // reload that read it then would swap in an empty map that the next save writes to disk.
+  public synchronized void loadUserData() {
+    Map<UUID, String> loaded = new ConcurrentHashMap<>();
+    try {
+      readUserData(loaded);
+    } finally {
+      userEquippedPresets = loaded;
+    }
+  }
 
+  private void readUserData(Map<UUID, String> userEquippedPresets) {
     if (!userDataFile.exists()) {
       return;
     }
@@ -57,7 +68,8 @@ public class UserDataManager {
     }
   }
 
-  public void saveUserData() {
+  // Players on different region threads can equip at the same moment; one write at a time
+  public synchronized void saveUserData() {
     try {
       FileConfiguration config = new YamlConfiguration();
 
@@ -76,7 +88,8 @@ public class UserDataManager {
     setEquippedPreset(player.getUniqueId(), presetName);
   }
 
-  public void setEquippedPreset(UUID playerUuid, String presetName) {
+  // Change and save under one lock, so a reload running at the same time cannot drop the change
+  public synchronized void setEquippedPreset(UUID playerUuid, String presetName) {
     if (presetName == null || presetName.isEmpty()) {
       userEquippedPresets.remove(playerUuid);
     } else {
@@ -98,16 +111,15 @@ public class UserDataManager {
   }
 
   public boolean hasEquippedPreset(UUID playerUuid) {
-    return userEquippedPresets.containsKey(playerUuid) &&
-        userEquippedPresets.get(playerUuid) != null &&
-        !userEquippedPresets.get(playerUuid).isEmpty();
+    String preset = userEquippedPresets.get(playerUuid);
+    return preset != null && !preset.isEmpty();
   }
 
   public void clearEquippedPreset(Player player) {
     clearEquippedPreset(player.getUniqueId());
   }
 
-  public void clearEquippedPreset(UUID playerUuid) {
+  public synchronized void clearEquippedPreset(UUID playerUuid) {
     userEquippedPresets.remove(playerUuid);
     saveUserData();
   }
