@@ -11,35 +11,48 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 public class GlobalPresetManager {
   private final BetterChatColours plugin;
-  private final Map<String, GlobalPresetData> presets;
+  // Read by placeholders on chat and region threads. A reload builds a new map and swaps it in, so
+  // a placeholder never sees it empty and unequips a player's preset as missing.
+  private volatile Map<String, GlobalPresetData> presets;
   private final File presetsFile;
 
   public GlobalPresetManager(BetterChatColours plugin) {
     this.plugin = plugin;
-    this.presets = new HashMap<>();
+    this.presets = new ConcurrentHashMap<>();
     this.presetsFile = new File(plugin.getDataFolder(), "presets.yml");
   }
 
   public void loadPresets() {
-    presets.clear();
-
-    if (!presetsFile.exists()) {
-      createDefaultPresets();
+    Map<String, GlobalPresetData> loaded = new ConcurrentHashMap<>();
+    boolean createDefaults;
+    try {
+      createDefaults = readPresets(loaded);
+    } finally {
+      presets = loaded;
+    }
+    if (createDefaults) {
       savePresets();
-      return;
+    }
+  }
+
+  /** Fills {@code presets} from presets.yml; returns true when the defaults were used instead. */
+  private boolean readPresets(Map<String, GlobalPresetData> presets) {
+    if (!presetsFile.exists()) {
+      createDefaultPresets(presets);
+      return true;
     }
 
     try {
       FileConfiguration config = YamlConfiguration.loadConfiguration(presetsFile);
 
       if (config.getConfigurationSection("presets") == null) {
-        createDefaultPresets();
-        savePresets();
-        return;
+        createDefaultPresets(presets);
+        return true;
       }
 
       for (String presetName : config.getConfigurationSection("presets").getKeys(false)) {
@@ -53,15 +66,17 @@ public class GlobalPresetManager {
       }
 
       plugin.getLogger().info("Loaded " + presets.size() + " global presets");
+      return false;
 
     } catch (Exception e) {
       plugin.getLogger().log(Level.SEVERE, "Error loading presets", e);
-      createDefaultPresets();
-      savePresets();
+      createDefaultPresets(presets);
+      return true;
     }
   }
 
-  public void savePresets() {
+  // Admins on different region threads can edit at the same moment; one write at a time
+  public synchronized void savePresets() {
     try {
       FileConfiguration config = new YamlConfiguration();
 
@@ -78,7 +93,7 @@ public class GlobalPresetManager {
     }
   }
 
-  private void createDefaultPresets() {
+  private void createDefaultPresets(Map<String, GlobalPresetData> presets) {
     // Standard Minecraft Colors (single colors)
     presets.put("black", new GlobalPresetData("black", List.of("#000000"), "chatcolor.preset.black"));
     presets.put("dark_blue", new GlobalPresetData("dark_blue", List.of("#0000AA"), "chatcolor.preset.dark_blue"));
@@ -156,12 +171,14 @@ public class GlobalPresetManager {
   }
 
   public void removePreset(String name) {
-    presets.remove(name);
+    if (name != null) {
+      presets.remove(name);
+    }
     savePresets();
   }
 
   public GlobalPresetData getPreset(String name) {
-    return presets.get(name);
+    return name == null ? null : presets.get(name);
   }
 
   public Map<String, GlobalPresetData> getAllPresets() {
@@ -182,6 +199,6 @@ public class GlobalPresetManager {
   }
 
   public boolean presetExists(String name) {
-    return presets.containsKey(name);
+    return name != null && presets.containsKey(name);
   }
 }
