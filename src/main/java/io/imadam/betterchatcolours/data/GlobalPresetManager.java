@@ -27,7 +27,9 @@ public class GlobalPresetManager {
     this.presetsFile = new File(plugin.getDataFolder(), "presets.yml");
   }
 
-  public void loadPresets() {
+  // Holds the same lock as savePresets: a save truncates presets.yml before writing, and a reload
+  // that read it then would get an empty file and write the defaults over every custom preset.
+  public synchronized void loadPresets() {
     Map<String, GlobalPresetData> loaded = new ConcurrentHashMap<>();
     boolean createDefaults;
     try {
@@ -147,7 +149,8 @@ public class GlobalPresetManager {
         .info("Created " + presets.size() + " default presets (16 standard colors + 9 premium gradients)");
   }
 
-  public void addPreset(String name, List<String> colors, String permission) {
+  // Change and save under one lock, so a reload running at the same time cannot drop the change
+  public synchronized void addPreset(String name, List<String> colors, String permission) {
     presets.put(name, new GlobalPresetData(name, colors, permission));
     savePresets();
   }
@@ -170,7 +173,7 @@ public class GlobalPresetManager {
     return name;
   }
 
-  public void removePreset(String name) {
+  public synchronized void removePreset(String name) {
     if (name != null) {
       presets.remove(name);
     }

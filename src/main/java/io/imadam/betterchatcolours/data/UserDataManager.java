@@ -25,7 +25,9 @@ public class UserDataManager {
     this.userDataFile = new File(plugin.getDataFolder(), "userdata.yml");
   }
 
-  public void loadUserData() {
+  // Holds the same lock as saveUserData: a save truncates userdata.yml before writing, and a
+  // reload that read it then would swap in an empty map that the next save writes to disk.
+  public synchronized void loadUserData() {
     Map<UUID, String> loaded = new ConcurrentHashMap<>();
     try {
       readUserData(loaded);
@@ -86,7 +88,8 @@ public class UserDataManager {
     setEquippedPreset(player.getUniqueId(), presetName);
   }
 
-  public void setEquippedPreset(UUID playerUuid, String presetName) {
+  // Change and save under one lock, so a reload running at the same time cannot drop the change
+  public synchronized void setEquippedPreset(UUID playerUuid, String presetName) {
     if (presetName == null || presetName.isEmpty()) {
       userEquippedPresets.remove(playerUuid);
     } else {
@@ -116,7 +119,7 @@ public class UserDataManager {
     clearEquippedPreset(player.getUniqueId());
   }
 
-  public void clearEquippedPreset(UUID playerUuid) {
+  public synchronized void clearEquippedPreset(UUID playerUuid) {
     userEquippedPresets.remove(playerUuid);
     saveUserData();
   }
