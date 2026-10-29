@@ -226,6 +226,20 @@ class MenuListenerTest {
   }
 
   @Test
+  void closeAllSkipsPlayersOwnedByAnotherThread() {
+    Menu menu = openMenu(new RecordingItem(Material.ARROW), List.of());
+    var menuView = mock(org.bukkit.inventory.InventoryView.class);
+    when(menuView.getTopInventory()).thenReturn(menu.getInventory());
+    when(player.getOpenInventory()).thenReturn(menuView);
+
+    server.bukkit.when(org.bukkit.Bukkit::getOnlinePlayers).thenAnswer(inv -> List.of(player));
+    server.bukkit.when(() -> org.bukkit.Bukkit.isOwnedByCurrentRegion(player)).thenReturn(false);
+    MenuListener.closeAll();
+
+    verify(player, never()).closeInventory();
+  }
+
+  @Test
   void closeAllClosesOpenMenusAndLeavesOtherInventoriesAlone() {
     Menu menu = openMenu(new RecordingItem(Material.ARROW), List.of());
     var menuView = mock(org.bukkit.inventory.InventoryView.class);

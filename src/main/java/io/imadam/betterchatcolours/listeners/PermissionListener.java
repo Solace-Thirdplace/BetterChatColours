@@ -29,9 +29,8 @@ public class PermissionListener implements Listener {
     Player player = event.getPlayer();
     
     // Check permissions after a short delay to ensure all permissions are loaded
-    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-      plugin.getUserDataManager().checkAndUnequipInvalidPreset(player);
-    }, 20L); // 1 second delay
+    player.getScheduler().runDelayed(plugin,
+        task -> plugin.getUserDataManager().checkAndUnequipInvalidPreset(player), null, 20L); // 1 second delay
   }
 
   /**
@@ -55,9 +54,8 @@ public class PermissionListener implements Listener {
       Player player = event.getPlayer();
       
       // Check permissions after a short delay to allow the command to process
-      plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-        plugin.getUserDataManager().checkAndUnequipInvalidPreset(player);
-      }, 5L); // 0.25 second delay
+      player.getScheduler().runDelayed(plugin,
+          task -> plugin.getUserDataManager().checkAndUnequipInvalidPreset(player), null, 5L); // 0.25 second delay
     }
   }
 }

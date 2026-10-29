@@ -4,7 +4,6 @@ import io.imadam.betterchatcolours.BetterChatColours;
 import io.imadam.betterchatcolours.gui.MainMenuGUI;
 import io.imadam.betterchatcolours.gui.menu.ItemBuilder;
 import io.imadam.betterchatcolours.gui.menu.MenuItem;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -25,9 +24,10 @@ public class BackToMainItem extends MenuItem {
   public void handleClick(ClickType clickType, Player player) {
     player.closeInventory();
     // Small delay to ensure inventory closes before opening new one
-    Bukkit.getScheduler().runTaskLater(
+    player.getScheduler().runDelayed(
         JavaPlugin.getPlugin(BetterChatColours.class),
-        () -> MainMenuGUI.open(player),
+        task -> MainMenuGUI.open(player),
+        null,
         1L
     );
   }
